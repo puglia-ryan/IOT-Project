@@ -1,0 +1,44 @@
+{
+    "rooms": [
+        {
+            "name": "Room_1",
+            "facilities": {
+                "videoprojector": true,
+                "seating_capacity": 62
+            }
+        },
+        {
+            "name": "Room_2",
+            "facilities": {
+                "videoprojector": true,
+                "seating_capacity": 40,
+                "computers": 20,
+                "robots_for_training": 10
+            }
+        },
+        {
+            "name": "Room_3",
+            "facilities": {
+                "videoprojector": true,
+                "seating_capacity": 30,
+                "computers": 10
+            }
+        },
+        {
+            "name": "Room_4",
+            "facilities": {
+                "videoprojector": false,
+                "seating_capacity": 12,
+                "robots_for_training": 5
+            }
+        },
+        {
+            "name": "Room_5",
+            "facilities": {
+                "videoprojector": true,
+                "seating_capacity": 25,
+                "computers": 25
+            }
+        }
+    ]
+}
