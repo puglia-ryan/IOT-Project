@@ -4,6 +4,7 @@ from flask import Flask, request, jsonify
 from flask_cors import CORS
 import logging
 from datetime import datetime
+import numpy as np
 
 app = Flask(__name__)
 CORS(app)  # Enable CORS for all routes
@@ -44,16 +45,7 @@ except Exception as e:
     logging.error(f"Error fetching sensor data: {e}")
     sensor_df = pd.DataFrame()
 
-
-# Fetch temperature readings
-try:
-    temp_collection = arduino_data_db["temperature_readings"]
-    temp_data = list(temp_collection.find({}, {"_id": 0}))
-    temp_df = pd.DataFrame(temp_data)
-    temp_df["timestamp"] = pd.to_datetime(temp_df["timestamp"])
-except Exception as e:
-    logging.error(f"Error fetching temperature readings: {e}")
-    temp_df = pd.DataFrame()
+print(f"Temp DF:\n{sensor_df.head()}")
 
 # Fetch facilities data
 try:
@@ -134,7 +126,9 @@ def get_calendar_events():
         return jsonify({"error": "Server error"}), 500
 
 
-# Fetch rooms with environmental metrics
+import pandas as pd
+import numpy as np
+
 @app.route("/rooms_with_metrics", methods=["GET"])
 def get_rooms_with_metrics():
     try:
@@ -142,28 +136,21 @@ def get_rooms_with_metrics():
             return jsonify({"error": "No facilities data available"}), 404
         if sensor_df.empty:
             return jsonify({"error": "No sensor data available"}), 404
-        if temp_df.empty:
-            return jsonify({"error": "No temperature data available"}), 404
 
-        # Merge sensor readings with facilities
-        rooms_with_env_data = pd.merge(
-            sensor_df, facilities_df, on="room_name", how="left"
-        )
+        # Ensure timestamps are in datetime format
+        sensor_df["timestamp"] = pd.to_datetime(sensor_df["timestamp"], errors='coerce')
 
-        # Merge temperature readings separately
-        rooms_with_env_data = pd.merge(
-            rooms_with_env_data, temp_df, on="timestamp", how="left"
-        )
+        # ✅ Merge sensor readings with facilities (temperature already in sensor_df)
+        rooms_with_env_data = pd.merge(sensor_df, facilities_df, on="room_name", how="left")
 
-        return (
-            jsonify(
-                {"rooms_with_metrics": rooms_with_env_data.to_dict(orient="records")}
-            ),
-            200,
-        )
+        # ✅ Convert NaN values to None for JSON compatibility
+        rooms_with_env_data.replace({np.nan: None}, inplace=True)
+
+        return jsonify({"rooms_with_metrics": rooms_with_env_data.to_dict(orient="records")}), 200
+
     except Exception as e:
         logging.error(f"Error fetching rooms with metrics: {e}")
-        return jsonify({"error": "Server error"}), 500
+        return jsonify({"error": "Server error", "details": str(e)}), 500
 
 
 # API Route for all rooms (without recommendation filtering)
