@@ -127,6 +127,7 @@ def get_calendar_events():
 import pandas as pd
 import numpy as np
 
+
 @app.route("/rooms_with_metrics", methods=["GET"])
 def get_rooms_with_metrics():
     try:
@@ -136,15 +137,38 @@ def get_rooms_with_metrics():
             return jsonify({"error": "No sensor data available"}), 404
 
         # Ensure timestamps are in datetime format
-        sensor_df["timestamp"] = pd.to_datetime(sensor_df["timestamp"], errors='coerce')
+        sensor_df["timestamp"] = pd.to_datetime(sensor_df["timestamp"], errors="coerce")
 
-        # ✅ Merge sensor readings with facilities (temperature already in sensor_df)
-        rooms_with_env_data = pd.merge(sensor_df, facilities_df, on="room_name", how="left")
+        # Merge sensor readings with facilities (temperature already in sensor_df)
+        rooms_with_env_data = pd.merge(
+            sensor_df, facilities_df, on="room_name", how="left"
+        )
 
-        # ✅ Convert NaN values to None for JSON compatibility
-        rooms_with_env_data.replace({np.nan: None}, inplace=True)
-
-        return jsonify({"rooms_with_metrics": rooms_with_env_data.to_dict(orient="records")}), 200
+        # Replace NaN values with defaults before returning
+        rooms_with_env_data.fillna(
+            {
+                "PM10": 0.0,
+                "PM2.5": 0.0,
+                "co2_level": 0.0,
+                "computers": 0,
+                "humidity": 0.0,
+                "robots_for_training": 0,
+                "room_name": "Room_1",
+                "seating_capacity": 0,
+                "sound_level": 0,
+                "temperature": 0,
+                "timestamp": "Sun, 24 Nov 2024 18:00:00 GMT",
+                "videoprojector": 1,
+                "voc_level": 0.0,
+            },
+            inplace=True,
+        )
+        return (
+            jsonify(
+                {"rooms_with_metrics": rooms_with_env_data.to_dict(orient="records")}
+            ),
+            200,
+        )
 
     except Exception as e:
         logging.error(f"Error fetching rooms with metrics: {e}")
@@ -155,34 +179,45 @@ def get_rooms_with_metrics():
 @app.route("/sensor_history", methods=["GET"])
 def get_sensor_history():
     try:
-        sensor_df["timestamp"] = pd.to_datetime(sensor_df["timestamp"], errors='coerce')
+        sensor_df["timestamp"] = pd.to_datetime(sensor_df["timestamp"], errors="coerce")
         room_name = request.args.get("room")
+        limit = int(request.args.get("limit", 10))
 
         if room_name:
             filtered_data = sensor_df[sensor_df["room_name"] == room_name]
         else:
             filtered_data = sensor_df
 
+        filtered_data = filtered_data.head(limit)
         return jsonify({"sensor_history": filtered_data.to_dict(orient="records")}), 200
     except Exception as e:
         logging.error(f"Error fetching sensor history: {e}")
         return jsonify({"error": "Server error"}), 500
 
+
 # API Route: Detect Disconnected Sensors
 @app.route("/sensor_status", methods=["GET"])
 def get_sensor_status():
     try:
-        sensor_df["timestamp"] = pd.to_datetime(sensor_df["timestamp"], errors='coerce')
+        sensor_df["timestamp"] = pd.to_datetime(sensor_df["timestamp"], errors="coerce")
         sensor_df.sort_values("timestamp", inplace=True)
 
         # Identify gaps in sensor data
         sensor_df["time_diff"] = sensor_df.groupby("room_name")["timestamp"].diff()
-        disconnected_sensors = sensor_df[sensor_df["time_diff"].dt.total_seconds() > 300]  # More than 5 min gap
+        disconnected_sensors = sensor_df[
+            sensor_df["time_diff"].dt.total_seconds() > 300
+        ]  # More than 5 min gap
 
-        return jsonify({"disconnected_sensors": disconnected_sensors.to_dict(orient="records")}), 200
+        return (
+            jsonify(
+                {"disconnected_sensors": disconnected_sensors.to_dict(orient="records")}
+            ),
+            200,
+        )
     except Exception as e:
         logging.error(f"Error detecting sensor disconnections: {e}")
         return jsonify({"error": "Server error"}), 500
+
 
 # API Route: Get Room Facilities
 @app.route("/room_facilities", methods=["GET"])
@@ -197,6 +232,7 @@ def get_room_facilities():
     except Exception as e:
         logging.error(f"Error fetching room facilities: {e}")
         return jsonify({"error": "Server error"}), 500
+
 
 # API Route for all rooms (without recommendation filtering)
 @app.route("/rooms", methods=["GET"])
