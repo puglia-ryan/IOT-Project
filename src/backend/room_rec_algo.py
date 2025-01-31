@@ -45,8 +45,6 @@ except Exception as e:
     logging.error(f"Error fetching sensor data: {e}")
     sensor_df = pd.DataFrame()
 
-print(f"Temp DF:\n{sensor_df.head()}")
-
 # Fetch facilities data
 try:
     facilities_collection = facilities_db["facilities"]
