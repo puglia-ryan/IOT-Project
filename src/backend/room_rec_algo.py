@@ -184,6 +184,19 @@ def get_sensor_status():
         logging.error(f"Error detecting sensor disconnections: {e}")
         return jsonify({"error": "Server error"}), 500
 
+# API Route: Get Room Facilities
+@app.route("/room_facilities", methods=["GET"])
+def get_room_facilities():
+    try:
+        room_name = request.args.get("room")
+        if not room_name:
+            return jsonify({"error": "Room name is required"}), 400
+
+        facilities = facilities_df[facilities_df["room_name"] == room_name]
+        return jsonify({"room_facilities": facilities.to_dict(orient="records")}), 200
+    except Exception as e:
+        logging.error(f"Error fetching room facilities: {e}")
+        return jsonify({"error": "Server error"}), 500
 
 # API Route for all rooms (without recommendation filtering)
 @app.route("/rooms", methods=["GET"])
