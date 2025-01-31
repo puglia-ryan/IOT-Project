@@ -204,82 +204,137 @@ def is_room_available(room_name, time_slot):
 
     return True  # Room is available
 
-"""
-def insert_environmental_data(room_name, temperature, co2_level, humidity, voc_level, pm10, pm2_5, sound_level):
-    try:
-        # Insert data into MongoDB collection
-        env_data = {
-            "room_name": room_name,
-            "temperature_min": temperature.get("min"),
-            "temperature_max": temperature.get("max"),
-            "co2_level": co2_level,
-            "humidity": humidity,
-            "voc_level": voc_level,
-            "PM10": pm10,
-            "PM2.5": pm2_5,
-            "sound_level": sound_level,
-            "timestamp": pd.Timestamp.now()
-        }
-        env_metrics_collection.insert_one(env_data)
-        logging.info(f"Environmental data inserted for room: {room_name}")
-    except Exception as e:
-        logging.error(f"Error inserting environmental data: {e}")
-"""
+####
+# Previous Recommend Implementation
+####
 
+# Function to get recommendations based on time slot and preferences
+def get_room_recommendation(temp_preference, time_slot):
+    # Check if the provided time slot is in the correct format
+    if not validate_time_slot_format(time_slot):
+        print("Error: The time slot format is invalid. Please use the format 'HH:MM-HH:MM'.")
+        return pd.DataFrame(), "time_slot"
+
+    # Filter sensor data for the given time slot
+    filtered_sensor_data = sensor_df[
+        sensor_df['timestamp'].apply(lambda ts: is_time_within_slot(ts, time_slot))
+    ]
+
+    if filtered_sensor_data.empty:
+        print(f"No sensor data is available for the time slot '{time_slot}'.")
+        return pd.DataFrame(), "time_slot"
+
+ 
+    # Filter out rooms that are booked in the agenda for the given time slot
+    available_rooms = room_data[room_data["room_name"].apply(lambda room: is_room_available(room, time_slot))]
+
+    # Merge available rooms with sensor data
+    filtered_room_data = pd.merge(available_rooms, filtered_sensor_data, on="room_name", how="inner")
+
+    # Check if the temperature column exists
+    if 'temperature' not in filtered_room_data.columns:
+        print("Error: Temperature data is missing. Unable to process recommendations.")
+        return pd.DataFrame(), None
+
+    # Apply temperature preference and regulations
+    filtered_rooms = filtered_room_data[
+        (filtered_room_data['temperature'] >= temp_preference - 2) &
+        (filtered_room_data['temperature'] <= temp_preference + 2) &
+        (filtered_room_data['co2_level'] <= standards['co2_level']) &
+        (filtered_room_data['temperature'] >= standards['temperature_min']) &
+        (filtered_room_data['temperature'] <= standards['temperature_max']) &
+        (filtered_room_data['humidity'] >= standards['humidity_min']) &
+        (filtered_room_data['humidity'] <= standards['humidity_max']) &
+        (filtered_room_data['voc_level'] <= standards['voc_level']) &
+        (filtered_room_data['PM10'] <= standards['PM10']) &
+        (filtered_room_data['PM2.5'] <= standards['PM2.5']) &
+        (filtered_room_data['sound_level'] <= standards['sound_level'])
+    ]
+
+    if filtered_rooms.empty:
+        print(f"No rooms match your preferences and meet the regulations for the time slot '{time_slot}'.")
+        
+        # Suggest alternative temperatures if temperature is the issue
+        if (temp_preference < standards['temperature_min'] or 
+            temp_preference > standards['temperature_max']):
+            print(f"The preferred temperature {temp_preference}°C is outside the acceptable range.")
+            available_temps = (
+                room_data['temperature']
+                .dropna()
+                .unique() if 'temperature' in room_data.columns else []
+            )
+            if len(available_temps) > 0:
+                print(f"Available temperatures within acceptable range: {sorted(available_temps)}")
+        else:
+            print(f"Available time slots for the selected temperature preference: {time_slot}.")
+        
+        return pd.DataFrame(), "preferences"
+
+    # Group by room_name and summarize sensor values
+    grouped_rooms = (
+        filtered_rooms.groupby("room_name")
+        .agg({
+            "temperature": "median",  # Use median temperature for summarizing
+            "co2_level": "median",
+            "humidity": "median",
+            "sound_level": "median",
+            "facilities_score": "first",  # Keep facilities score as-is
+            "videoprojector": "first",
+            "seating_capacity": "first",
+            "computers": "first",
+            "robots_for_training": "first",
+        })
+        .reset_index()
+    )
+
+    # Calculate rank based on the summarized data
+    grouped_rooms["rank"] = (
+        grouped_rooms["facilities_score"] * 0.5 +
+        grouped_rooms[["temperature", "co2_level", "humidity", "sound_level"]].mean(axis=1) * 0.5
+    ).rank(ascending=False)
+
+    # Prepare the facilities column as a string/dictionary, handling NaN values
+    grouped_rooms["facilities"] = grouped_rooms.apply(
+        lambda row: {
+            "videoprojector": row.get("videoprojector", 0) if pd.notna(row.get("videoprojector")) else 0,
+            "seating_capacity": row.get("seating_capacity", 0) if pd.notna(row.get("seating_capacity")) else 0,
+            "computers": row.get("computers", 0) if pd.notna(row.get("computers")) else 0,
+            "robots_for_training": row.get("robots_for_training", 0) if pd.notna(row.get("robots_for_training")) else 0
+        },
+        axis=1
+    )
+
+    # Select the required columns (rank, room_name, and facilities)
+    final_recommendation = grouped_rooms[["rank", "room_name", "facilities"]]
+
+    # Return top 10 recommendations
+    return final_recommendation.sort_values(by="rank").head(10), None
+
+# API Route recommended Rooms after filter
 @app.route('/recommend', methods=['POST'])
-def recommend_room():
+def recommend():
     try:
         data = request.get_json()
-        if "temperature" not in data or data["temperature"] is None:
-            return jsonify({"error": "Temperature preference is required"}), 400
+        logging.info(f"Received request with data: {data}")  # Log request data
 
-        # Extract and convert temperature preference to float
-        temp_preference = float(data.get("temperature"))
-        min_seating_capacity = int(data.get("min_seating_capacity", 10))  # Ensure integer conversion
+        temp_preference = float(data.get("temperature", 0))
+        time_slot = data.get("time_slot", "")
 
-        if temp_preference is None:
-            return jsonify({"error": "Temperature preference is required"}), 400
+        if not temp_preference or not time_slot:
+            return jsonify({"error": "Invalid input. Please provide temperature and time_slot."}), 400
 
-        # Ensure necessary data exists
-        if facilities_df.empty or sensor_df.empty:
-            return jsonify({"error": "Room data is missing"}), 500
+        recommended_rooms, suggestion_type = get_room_recommendation(temp_preference, time_slot)
 
-        # Merge sensor data with facilities
-        room_recommendations = pd.merge(sensor_df, facilities_df, on="room_name", how="left")
+        if recommended_rooms.empty:
+            logging.info(f"No matching rooms for input: {data}")  # Log no results
+            return jsonify({"error": "No rooms match the preferences."}), 404
 
-        # Apply filtering based on regulations
-        filtered_rooms = room_recommendations[
-            (room_recommendations["temperature"] >= max(temp_preference - 2, standards["temperature_min"])) & 
-            (room_recommendations["temperature"] <= min(temp_preference + 2, standards["temperature_max"])) &
-            (room_recommendations["co2_level"] <= standards["co2_level"]) &
-            (room_recommendations["sound_level"] <= standards["sound_level"]) &
-            (room_recommendations["seating_capacity"] >= min_seating_capacity) &
-            (room_recommendations["voc_level"] <= standards["voc_level"]) &
-            (room_recommendations["PM10"] <= standards["PM10"]) &
-            (room_recommendations["PM2.5"] <= standards["PM2.5"]) &
-            (room_recommendations["humidity"] >= standards["humidity_min"]) &
-            (room_recommendations["humidity"] <= standards["humidity_max"])
-        ].copy()  # Explicitly create a copy to avoid SettingWithCopyWarning
-
-        # If no rooms match, return an error
-        if filtered_rooms.empty:
-            print("Returning 404: No rooms match the criteria")
-            return jsonify({"message": "No rooms meet the environmental and comfort criteria"}), 404
-
-        # Fix SettingWithCopyWarning by explicitly using .loc[]
-        filtered_rooms.loc[:, "temp_diff"] = abs(filtered_rooms["temperature"] - temp_preference)
-
-        # Sort by best match (closest temperature and lowest CO₂)
-        recommended_rooms = filtered_rooms.sort_values(by=["temp_diff", "co2_level", "PM2.5", "PM10"]).head(5)
-
-        response_data = {"recommended_rooms":
-                         recommended_rooms.to_dict(orient="records")}
-        print("Returning Data: ", response_data)
-        return jsonify({"recommended_rooms": recommended_rooms.to_dict(orient="records")}), 200
-
+        logging.info(f"Returning rooms: {recommended_rooms.to_dict(orient='records')}")  # Log results
+        return jsonify({"rooms": recommended_rooms.to_dict(orient="records")}), 200
     except Exception as e:
-        logging.error(f"Error processing recommendations: {e}")
+        logging.error(f"Unexpected error: {e}")
         return jsonify({"error": "Server error"}), 500
+
 
 if __name__ == "__main__":
     app.run(port=5009, debug=True)
