@@ -151,6 +151,23 @@ def get_rooms_with_metrics():
         return jsonify({"error": "Server error", "details": str(e)}), 500
 
 
+# ✅ API Route: Get Time-Series Sensor Data
+@app.route("/sensor_history", methods=["GET"])
+def get_sensor_history():
+    try:
+        sensor_df["timestamp"] = pd.to_datetime(sensor_df["timestamp"], errors='coerce')
+        room_name = request.args.get("room")
+
+        if room_name:
+            filtered_data = sensor_df[sensor_df["room_name"] == room_name]
+        else:
+            filtered_data = sensor_df
+
+        return jsonify({"sensor_history": filtered_data.to_dict(orient="records")}), 200
+    except Exception as e:
+        logging.error(f"Error fetching sensor history: {e}")
+        return jsonify({"error": "Server error"}), 500
+
 # API Route for all rooms (without recommendation filtering)
 @app.route("/rooms", methods=["GET"])
 def get_all_rooms():
