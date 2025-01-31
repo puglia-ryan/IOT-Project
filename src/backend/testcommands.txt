@@ -1,0 +1,19 @@
+#Make sure room_rec_algo.py is running
+
+# Testing /recommend
+curl -X POST "http://127.0.0.1:5009/recommend" \
+     -H "Content-Type: application/json" \
+     -d '{
+           "temperature": 22,
+           "min_seating_capacity": 20
+         }'
+
+# Testing /rooms
+curl -X GET "http://127.0.0.1:5009/rooms"
+
+# Testing /rooms_with_metrics
+curl -X GET "http://127.0.0.1:5009/rooms_with_metrics"
+
+# Testing /calendar_events
+curl -X GET "http://127.0.0.1:5009/calendar_events?start=2024-11-18T08:00:00&end=2024-11-18T10:00:00"
+
