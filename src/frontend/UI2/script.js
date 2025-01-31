@@ -21,8 +21,10 @@ async function fetchRooms() {
             select.appendChild(option);
         });
 
-        // Load data for first room
-        fetchData();
+        // Load data for the first room
+        if (rooms.length > 0) {
+            fetchData();
+        }
     } catch (error) {
         console.error("Error fetching rooms:", error);
     }
@@ -40,6 +42,7 @@ async function fetchData() {
 
         if (roomData.length > 0) {
             updateCharts(roomData);
+            updateFacilitiesTable(roomData[0]); // Update facilities for the selected room
         } else {
             console.error("No data for selected room.");
         }
@@ -106,6 +109,13 @@ function createTimeChartConfig(label, timestamps, values, color) {
     };
 }
 
+// Update facilities table with room data
+function updateFacilitiesTable(facilities) {
+    document.getElementById("computers").textContent = facilities.computers || "0";
+    document.getElementById("videoprojector").textContent = facilities.videoprojector || "0";
+    document.getElementById("seating_capacity").textContent = facilities.seating_capacity || "0";
+    document.getElementById("robots").textContent = facilities.robots_for_training || "0";
+}
+
 // Initialize the dashboard
 fetchRooms();
-

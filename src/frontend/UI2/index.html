@@ -12,7 +12,7 @@
         <h1>Room Sensor Dashboard</h1>
         
         <label for="roomSelect">Select a Room:</label>
-        <select id="roomSelect"></select>
+        <select id="roomSelect" onchange="fetchData()"></select>
         
         <div class="charts">
             <div class="chart-container"><canvas id="tempChart"></canvas></div>
@@ -22,9 +22,31 @@
         </div>
         
         <button onclick="fetchData()">Refresh Data</button>
+
+        <!-- Facilities Table -->
+        <div class="facilities-container">
+            <h2>Room Facilities</h2>
+            <table id="facilitiesTable">
+                <thead>
+                    <tr>
+                        <th>Computers</th>
+                        <th>Videoprojector</th>
+                        <th>Seating Capacity</th>
+                        <th>Robots</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td id="computers">-</td>
+                        <td id="videoprojector">-</td>
+                        <td id="seating_capacity">-</td>
+                        <td id="robots">-</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
     </div>
 
     <script src="script.js"></script>
 </body>
 </html>
-
