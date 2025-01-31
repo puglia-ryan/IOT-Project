@@ -36,7 +36,8 @@ try:
     sensor_collection = arduino_data_db["sensor_readings"]
     sensor_data = list(sensor_collection.find({}, {"_id": 0}))
     sensor_df = pd.DataFrame(sensor_data)
-    sensor_df['timestamp'] = pd.to_datetime(sensor_df['timestamp'])
+    if "timestamp" in sensor_df.columns:
+        sensor_df['timestamp'] = pd.to_datetime(sensor_df['timestamp'])
 except Exception as e:
     logging.error(f"Error fetching sensor data: {e}")
     sensor_df = pd.DataFrame()
