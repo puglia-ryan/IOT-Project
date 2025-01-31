@@ -203,6 +203,7 @@ def is_room_available(room_name, time_slot):
 
     return True  # Room is available
 
+"""
 def insert_environmental_data(room_name, temperature, co2_level, humidity, voc_level, pm10, pm2_5, sound_level):
     try:
         # Insert data into MongoDB collection
@@ -222,15 +223,18 @@ def insert_environmental_data(room_name, temperature, co2_level, humidity, voc_l
         logging.info(f"Environmental data inserted for room: {room_name}")
     except Exception as e:
         logging.error(f"Error inserting environmental data: {e}")
+"""
 
 @app.route('/recommend', methods=['POST'])
 def recommend_room():
     try:
         data = request.get_json()
+        if "temperature" not in data or data["temperature"] is None:
+            return jsonify({"error": "Temperature preference is required"}), 400
 
-        # Extract user preferences
-        temp_preference = data.get("temperature")
-        min_seating_capacity = data.get("min_seating_capacity", 10)  # Default seating requirement
+        # Extract and convert temperature preference to float
+        temp_preference = float(data.get("temperature"))
+        min_seating_capacity = int(data.get("min_seating_capacity", 10))  # Ensure integer conversion
 
         if temp_preference is None:
             return jsonify({"error": "Temperature preference is required"}), 400
@@ -254,14 +258,16 @@ def recommend_room():
             (room_recommendations["PM2.5"] <= standards["PM2.5"]) &
             (room_recommendations["humidity"] >= standards["humidity_min"]) &
             (room_recommendations["humidity"] <= standards["humidity_max"])
-        ]
+        ].copy()  # Explicitly create a copy to avoid SettingWithCopyWarning
 
         # If no rooms match, return an error
         if filtered_rooms.empty:
             return jsonify({"message": "No rooms meet the environmental and comfort criteria"}), 404
 
+        # Fix SettingWithCopyWarning by explicitly using .loc[]
+        filtered_rooms.loc[:, "temp_diff"] = abs(filtered_rooms["temperature"] - temp_preference)
+
         # Sort by best match (closest temperature and lowest CO₂)
-        filtered_rooms["temp_diff"] = abs(filtered_rooms["temperature"] - temp_preference)
         recommended_rooms = filtered_rooms.sort_values(by=["temp_diff", "co2_level", "PM2.5", "PM10"]).head(5)
 
         return jsonify({"recommended_rooms": recommended_rooms.to_dict(orient="records")}), 200
