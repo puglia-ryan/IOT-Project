@@ -263,6 +263,7 @@ def recommend_room():
 
         # If no rooms match, return an error
         if filtered_rooms.empty:
+            print("Returning 404: No rooms match the criteria")
             return jsonify({"message": "No rooms meet the environmental and comfort criteria"}), 404
 
         # Fix SettingWithCopyWarning by explicitly using .loc[]
@@ -271,6 +272,9 @@ def recommend_room():
         # Sort by best match (closest temperature and lowest CO₂)
         recommended_rooms = filtered_rooms.sort_values(by=["temp_diff", "co2_level", "PM2.5", "PM10"]).head(5)
 
+        response_data = {"recommended_rooms":
+                         recommended_rooms.to_dict(orient="records")}
+        print("Returning Data: ", response_data)
         return jsonify({"recommended_rooms": recommended_rooms.to_dict(orient="records")}), 200
 
     except Exception as e:
