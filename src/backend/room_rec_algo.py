@@ -151,7 +151,7 @@ def get_rooms_with_metrics():
         return jsonify({"error": "Server error", "details": str(e)}), 500
 
 
-# ✅ API Route: Get Time-Series Sensor Data
+# API Route: Get Time-Series Sensor Data
 @app.route("/sensor_history", methods=["GET"])
 def get_sensor_history():
     try:
@@ -167,6 +167,23 @@ def get_sensor_history():
     except Exception as e:
         logging.error(f"Error fetching sensor history: {e}")
         return jsonify({"error": "Server error"}), 500
+
+# API Route: Detect Disconnected Sensors
+@app.route("/sensor_status", methods=["GET"])
+def get_sensor_status():
+    try:
+        sensor_df["timestamp"] = pd.to_datetime(sensor_df["timestamp"], errors='coerce')
+        sensor_df.sort_values("timestamp", inplace=True)
+
+        # Identify gaps in sensor data
+        sensor_df["time_diff"] = sensor_df.groupby("room_name")["timestamp"].diff()
+        disconnected_sensors = sensor_df[sensor_df["time_diff"].dt.total_seconds() > 300]  # More than 5 min gap
+
+        return jsonify({"disconnected_sensors": disconnected_sensors.to_dict(orient="records")}), 200
+    except Exception as e:
+        logging.error(f"Error detecting sensor disconnections: {e}")
+        return jsonify({"error": "Server error"}), 500
+
 
 # API Route for all rooms (without recommendation filtering)
 @app.route("/rooms", methods=["GET"])
