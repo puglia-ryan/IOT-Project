@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Sensor Data Dashboard</title>
-    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="styles.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
@@ -15,10 +15,10 @@
         <select id="roomSelect"></select>
         
         <div class="charts">
-            <canvas id="tempChart"></canvas>
-            <canvas id="co2Chart"></canvas>
-            <canvas id="humidityChart"></canvas>
-            <canvas id="soundChart"></canvas>
+            <div class="chart-container"><canvas id="tempChart"></canvas></div>
+            <div class="chart-container"><canvas id="co2Chart"></canvas></div>
+            <div class="chart-container"><canvas id="humidityChart"></canvas></div>
+            <div class="chart-container"><canvas id="soundChart"></canvas></div>
         </div>
         
         <button onclick="fetchData()">Refresh Data</button>
