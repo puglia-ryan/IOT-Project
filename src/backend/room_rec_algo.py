@@ -246,14 +246,14 @@ def recommend_room():
         filtered_rooms = room_recommendations[
             (room_recommendations["temperature"] >= max(temp_preference - 2, standards["temperature_min"])) & 
             (room_recommendations["temperature"] <= min(temp_preference + 2, standards["temperature_max"])) &
-            (room_recommendations["co2_level"] <= standards["co2_level"]) &  # CO₂ ≤ 1000 ppm
-            (room_recommendations["sound_level"] <= standards["sound_level"]) &  # Noise ≤ 45 dB
-            (room_recommendations["seating_capacity"] >= min_seating_capacity) &  # Min seating requirement
-            (room_recommendations["voc_level"] <= standards["voc_level"]) &  # VOCs ≤ 400 ppb
-            (room_recommendations["PM10"] <= standards["PM10"]) &  # PM10 ≤ 50 μg/m³
-            (room_recommendations["PM2.5"] <= standards["PM2.5"]) &  # PM2.5 ≤ 25 μg/m³
-            (room_recommendations["humidity"] >= standards["humidity_min"]) &  # Humidity ≥ 30%
-            (room_recommendations["humidity"] <= standards["humidity_max"])  # Humidity ≤ 70%
+            (room_recommendations["co2_level"] <= standards["co2_level"]) &
+            (room_recommendations["sound_level"] <= standards["sound_level"]) &
+            (room_recommendations["seating_capacity"] >= min_seating_capacity) &
+            (room_recommendations["voc_level"] <= standards["voc_level"]) &
+            (room_recommendations["PM10"] <= standards["PM10"]) &
+            (room_recommendations["PM2.5"] <= standards["PM2.5"]) &
+            (room_recommendations["humidity"] >= standards["humidity_min"]) &
+            (room_recommendations["humidity"] <= standards["humidity_max"])
         ]
 
         # If no rooms match, return an error
