@@ -1,99 +1,111 @@
-document.addEventListener('DOMContentLoaded', function() {
-    const resultsDiv = document.getElementById('rankings');
-    let roomsData = []; // Store fetched room data for sorting
+const apiUrl = "http://localhost:5009/rooms_with_metrics";
 
-    // Function to sort rooms by a given column
-    function sortRooms(column, type = 'string') {
-        let ascending = true;
+let tempChart, co2Chart, humidityChart, soundChart;
 
-        return function() {
-            roomsData.sort((a, b) => {
-                let valA = a[column] || "";
-                let valB = b[column] || "";
+// Fetch unique rooms and populate dropdown
+async function fetchRooms() {
+    try {
+        let response = await fetch(apiUrl);
+        let data = await response.json();
+        
+        // Extract unique room names
+        let rooms = [...new Set(data.rooms_with_metrics.map(room => room.room_name))];
 
-                if (type === 'number') {
-                    valA = parseFloat(valA) || 0;
-                    valB = parseFloat(valB) || 0;
-                } else if (type === 'time') {
-                    valA = valA ? valA.split('-')[0] : "00:00"; // Sort by start time
-                    valB = valB ? valB.split('-')[0] : "00:00";
-                }
+        let select = document.getElementById("roomSelect");
+        select.innerHTML = "";
 
-                return ascending ? (valA > valB ? 1 : -1) : (valA < valB ? 1 : -1);
-            });
+        rooms.forEach(room => {
+            let option = document.createElement("option");
+            option.value = room;
+            option.textContent = room;
+            select.appendChild(option);
+        });
 
-            ascending = !ascending; // Toggle sorting order
-            displayRooms(); // Refresh table after sorting
-        };
+        // Load data for first room
+        fetchData();
+    } catch (error) {
+        console.error("Error fetching rooms:", error);
     }
+}
 
-    // Function to display rooms in a table
-    function displayRooms() {
-        resultsDiv.innerHTML = `
-            <table border="1" style="width: 100%; border-collapse: collapse;">
-                <thead>
-                    <tr>
-                        <th style="cursor:pointer; padding: 8px; text-align: left;" id="sort-room">Room ⬍</th>
-                        <th style="cursor:pointer; padding: 8px; text-align: left;" id="sort-time">Time Slot ⬍</th>
-                        <th style="cursor:pointer; padding: 8px; text-align: left;" id="sort-temp">Temp (°C) ⬍</th>
-                        <th style="cursor:pointer; padding: 8px; text-align: left;" id="sort-co2">CO₂ (ppm) ⬍</th>
-                        <th style="cursor:pointer; padding: 8px; text-align: left;" id="sort-humidity">Humidity (%) ⬍</th>
-                        <th style="cursor:pointer; padding: 8px; text-align: left;" id="sort-sound">Sound (dB) ⬍</th>
-                        <th style="padding: 8px; text-align: left;">Facilities</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    ${roomsData.map(room => `
-                        <tr>
-                            <td style="padding: 8px;">${room.room_name}</td>
-                            <td style="padding: 8px;">${room.time_slot || "Not Available"}</td>
-                            <td style="padding: 8px;">${room.temperature || "N/A"}</td>
-                            <td style="padding: 8px;">${room.co2_level || "N/A"}</td>
-                            <td style="padding: 8px;">${room.humidity || "N/A"}</td>
-                            <td style="padding: 8px;">${room.sound_level || "N/A"}</td>
-                            <td style="padding: 8px;">
-                                ${room.facilities ? Object.entries(room.facilities)
-                                    .map(([key, value]) => `${key}: ${value}`)
-                                    .join('<br>') : "No facilities available"}
-                            </td>
-                        </tr>
-                    `).join("")}
-                </tbody>
-            </table>
-        `;
+// Fetch time-series data for selected room
+async function fetchData() {
+    let selectedRoom = document.getElementById("roomSelect").value;
+    
+    try {
+        let response = await fetch(apiUrl);
+        let data = await response.json();
+        
+        let roomData = data.rooms_with_metrics.filter(room => room.room_name === selectedRoom);
 
-        // Add sorting event listeners
-        document.getElementById("sort-room").addEventListener("click", sortRooms("room_name", "string"));
-        document.getElementById("sort-time").addEventListener("click", sortRooms("time_slot", "time"));
-        document.getElementById("sort-temp").addEventListener("click", sortRooms("temperature", "number"));
-        document.getElementById("sort-co2").addEventListener("click", sortRooms("co2_level", "number"));
-        document.getElementById("sort-humidity").addEventListener("click", sortRooms("humidity", "number"));
-        document.getElementById("sort-sound").addEventListener("click", sortRooms("sound_level", "number"));
-    }
-
-    // Fetch and display all rooms when the page loads
-    async function fetchAllRooms() {
-        try {
-            const response = await fetch('http://127.0.0.1:5009/rooms_with_metrics');
-
-            if (!response.ok) {
-                const errorData = await response.json();
-                console.error('Error:', errorData);
-                resultsDiv.innerHTML = `<p style='color: red;'>Error: ${errorData.error}</p>`;
-                return;
-            }
-
-            const data = await response.json();
-            roomsData = data.rooms_with_metrics || [];
-            displayRooms(); // Show table after fetching data
-
-        } catch (error) {
-            console.error("Error fetching room metrics:", error);
-            resultsDiv.innerHTML = "<p style='color: red;'>Unexpected error occurred. Please try again.</p>";
+        if (roomData.length > 0) {
+            updateCharts(roomData);
+        } else {
+            console.error("No data for selected room.");
         }
+    } catch (error) {
+        console.error("Error fetching data:", error);
     }
+}
 
-    // Fetch all rooms initially
-    fetchAllRooms();
-});
+// Update time-series charts
+function updateCharts(roomData) {
+    // Extract timestamps and sensor values
+    const timestamps = roomData.map(entry => new Date(entry.timestamp).toLocaleTimeString());
+    const temperatures = roomData.map(entry => entry.temperature || 0);
+    const co2Levels = roomData.map(entry => entry.co2_level || 0);
+    const humidityLevels = roomData.map(entry => entry.humidity || 0);
+    const soundLevels = roomData.map(entry => entry.sound_level || 0);
+
+    const ctx1 = document.getElementById("tempChart").getContext("2d");
+    const ctx2 = document.getElementById("co2Chart").getContext("2d");
+    const ctx3 = document.getElementById("humidityChart").getContext("2d");
+    const ctx4 = document.getElementById("soundChart").getContext("2d");
+
+    // Destroy old charts if they exist
+    if (tempChart) tempChart.destroy();
+    if (co2Chart) co2Chart.destroy();
+    if (humidityChart) humidityChart.destroy();
+    if (soundChart) soundChart.destroy();
+
+    // Create new line charts with time-series data
+    tempChart = new Chart(ctx1, createTimeChartConfig("Temperature (°C)", timestamps, temperatures, "rgba(255, 99, 132, 0.6)"));
+    co2Chart = new Chart(ctx2, createTimeChartConfig("CO2 Level (ppm)", timestamps, co2Levels, "rgba(54, 162, 235, 0.6)"));
+    humidityChart = new Chart(ctx3, createTimeChartConfig("Humidity (%)", timestamps, humidityLevels, "rgba(75, 192, 192, 0.6)"));
+    soundChart = new Chart(ctx4, createTimeChartConfig("Sound Level (dB)", timestamps, soundLevels, "rgba(255, 206, 86, 0.6)"));
+}
+
+// Generate time-series chart config
+function createTimeChartConfig(label, timestamps, values, color) {
+    return {
+        type: "line",
+        data: {
+            labels: timestamps,
+            datasets: [{
+                label: label,
+                data: values,
+                backgroundColor: color,
+                borderColor: color,
+                fill: false
+            }]
+        },
+        options: {
+            responsive: true,
+            scales: {
+                x: {
+                    title: {
+                        display: true,
+                        text: "Time"
+                    }
+                },
+                y: {
+                    beginAtZero: true
+                }
+            }
+        }
+    };
+}
+
+// Initialize the dashboard
+fetchRooms();
 

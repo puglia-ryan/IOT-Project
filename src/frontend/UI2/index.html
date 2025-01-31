@@ -3,51 +3,28 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Admin Dashboard</title>
+    <title>Sensor Data Dashboard</title>
+    <link rel="stylesheet" href="style.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script defer src="script.js"></script>
-    <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-    <header>
-        <h1>Decision Support System - Admin Dashboard</h1>
-    </header>
-    <main>
-        <section>
-            <h2>Sensor Data Over Time</h2>
-            <canvas id="sensorChart"></canvas>
-            <label for="roomSelect">Select Room:</label>
-            <select id="roomSelect">
-                <option value="">All Rooms</option>
-                <option value="Room_1">Room 1</option>
-                <option value="Room_2">Room 2</option>
-                <option value="Room_3">Room 3</option>
-            </select>
-            <button id="refreshData">Refresh Data</button>
-        </section>
+    <div class="container">
+        <h1>Room Sensor Dashboard</h1>
+        
+        <label for="roomSelect">Select a Room:</label>
+        <select id="roomSelect"></select>
+        
+        <div class="charts">
+            <canvas id="tempChart"></canvas>
+            <canvas id="co2Chart"></canvas>
+            <canvas id="humidityChart"></canvas>
+            <canvas id="soundChart"></canvas>
+        </div>
+        
+        <button onclick="fetchData()">Refresh Data</button>
+    </div>
 
-        <section>
-            <h2>Disconnected Sensors</h2>
-            <div id="disconnectedSensors"></div>
-        </section>
-
-        <section>
-            <h2>Room Facilities</h2>
-            <input type="text" id="facilityRoom" placeholder="Enter Room Name">
-            <button id="fetchFacilities">Show Facilities</button>
-            <div id="roomFacilities"></div>
-        </section>
-
-        <section>
-            <h2>Calendar Events</h2>
-            <label for="startDate">Start Date:</label>
-            <input type="date" id="startDate">
-            <label for="endDate">End Date:</label>
-            <input type="date" id="endDate">
-            <button id="fetchEvents">Show Events</button>
-            <div id="calendarEvents"></div>
-        </section>
-    </main>
+    <script src="script.js"></script>
 </body>
 </html>
 

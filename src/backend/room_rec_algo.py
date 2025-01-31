@@ -124,10 +124,6 @@ def get_calendar_events():
         return jsonify({"error": "Server error"}), 500
 
 
-import pandas as pd
-import numpy as np
-
-
 @app.route("/rooms_with_metrics", methods=["GET"])
 def get_rooms_with_metrics():
     try:
@@ -139,12 +135,15 @@ def get_rooms_with_metrics():
         # Ensure timestamps are in datetime format
         sensor_df["timestamp"] = pd.to_datetime(sensor_df["timestamp"], errors="coerce")
 
-        # Merge sensor readings with facilities (temperature already in sensor_df)
+
+        # Merge sensor readings with facilities
         rooms_with_env_data = pd.merge(
             sensor_df, facilities_df, on="room_name", how="left"
         )
 
-        # Replace NaN values with defaults before returning
+        ##For debugging
+        print("First 5 timestamps before fillna function:")
+        print(rooms_with_env_data[["room_name", "timestamp"]].head())
         rooms_with_env_data.fillna(
             {
                 "PM10": 0.0,
@@ -157,12 +156,13 @@ def get_rooms_with_metrics():
                 "seating_capacity": 0,
                 "sound_level": 0,
                 "temperature": 0,
-                "timestamp": "Sun, 24 Nov 2024 18:00:00 GMT",
                 "videoprojector": 1,
                 "voc_level": 0.0,
             },
             inplace=True,
         )
+        print("First 5 timestamps after fillna function:")
+        print(rooms_with_env_data[["room_name", "timestamp"]].head())
         return (
             jsonify(
                 {"rooms_with_metrics": rooms_with_env_data.to_dict(orient="records")}
