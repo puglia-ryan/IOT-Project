@@ -353,37 +353,6 @@ def recommend():
         logging.error(f"Unexpected error: {e}")
         return jsonify({"error": "Server error"}), 500
 
-"""
-# API Route for rooms with environmental metrics
-@app.route('/rooms_with_metrics', methods=['GET'])
-def get_rooms_with_metrics():
-    try:
-        # Fetch environmental metrics data from MongoDB
-        env_metrics_data = list(env_metrics_collection.find({}, {"_id": 0}))
-        env_metrics_df = pd.DataFrame(env_metrics_data)
-        
-        if env_metrics_df.empty:
-            return jsonify({"error": "No environmental data available"}), 404
-
-        # Merge with room data to add the environmental metrics
-        room_with_metrics = pd.merge(room_data, env_metrics_df, on="room_name", how="left")
-
-        # Ensure the columns you need are present
-        if room_with_metrics.empty:
-            return jsonify({"error": "No matching room data found with environmental metrics."}), 404
-
-        # Select the necessary columns to return
-        all_rooms_with_metrics = room_with_metrics[[
-            "room_name", "facilities_score", "time_slot", "facilities",
-            "temperature_min", "temperature_max", "co2_level", "humidity", 
-            "voc_level", "PM10", "PM2.5", "sound_level", "timestamp"
-        ]]
-
-        return jsonify({"rooms_with_metrics": all_rooms_with_metrics.to_dict(orient="records")}), 200
-    except Exception as e:
-        logging.error(f"Unexpected error: {e}")
-        return jsonify({"error": "Server error"}), 500
-"""
 
 if __name__ == "__main__":
     app.run(port=5009, debug=True)
