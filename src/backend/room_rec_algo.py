@@ -141,9 +141,6 @@ def get_rooms_with_metrics():
             sensor_df, facilities_df, on="room_name", how="left"
         )
 
-        ##For debugging
-        print("First 5 timestamps before fillna function:")
-        print(rooms_with_env_data[["room_name", "timestamp"]].head())
         rooms_with_env_data.fillna(
             {
                 "PM10": 0.0,
@@ -161,8 +158,10 @@ def get_rooms_with_metrics():
             },
             inplace=True,
         )
-        print("First 5 timestamps after fillna function:")
-        print(rooms_with_env_data[["room_name", "timestamp"]].head())
+
+        # Ensure no NaN values in the final JSON response
+        rooms_with_env_data = rooms_with_env_data.replace({np.nan: None})
+        rooms_with_env_data = rooms_with_env_data.astype(object).where(pd.notna(rooms_with_env_data), None)
         return (
             jsonify(
                 {"rooms_with_metrics": rooms_with_env_data.to_dict(orient="records")}
@@ -218,8 +217,6 @@ def get_sensor_status():
         logging.error(f"Error detecting sensor disconnections: {e}")
         return jsonify({"error": "Server error"}), 500
 
-
-# API Route: Get Room Facilities
 @app.route("/room_facilities", methods=["GET"])
 def get_room_facilities():
     try:
@@ -227,12 +224,27 @@ def get_room_facilities():
         if not room_name:
             return jsonify({"error": "Room name is required"}), 400
 
+        # Get facilities for the requested room
         facilities = facilities_df[facilities_df["room_name"] == room_name]
+
+        if facilities.empty:
+            return jsonify({"room_facilities": []}), 200  # Return empty list instead of error
+
+        # Ensure NaN values are replaced with valid JSON-friendly types
+        facilities = facilities.fillna({
+            "computers": 0,
+            "robots_for_training": 0,
+            "videoprojector": 0,
+            "seating_capacity": 0,
+        }).replace({np.nan: None})
+
+        # Convert all numeric values to native Python types
+        facilities = facilities.astype(object).where(pd.notna(facilities), None)
+
         return jsonify({"room_facilities": facilities.to_dict(orient="records")}), 200
     except Exception as e:
         logging.error(f"Error fetching room facilities: {e}")
         return jsonify({"error": "Server error"}), 500
-
 
 # API Route for all rooms (without recommendation filtering)
 @app.route("/rooms", methods=["GET"])
