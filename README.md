@@ -26,11 +26,9 @@ UI 2: Sensor Data Dashboard - Displays real-time environmental sensor data, room
 
 - flask_cors
 
-Installation
-
 ### Start the API:
 
-**python room_rec_algo.py**
+Run the following command to start the API: **"python room_rec_algo.py"**
 
 The API will be available at http://localhost:5009.
 
