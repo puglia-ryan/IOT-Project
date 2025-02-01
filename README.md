@@ -80,8 +80,3 @@ Select a room from the dropdown menu.
 
 View graphs and facilities related to the selected room.
 
-## Summary
-
-This system provides an interactive way to monitor room conditions and recommend optimal spaces based on environmental factors and user preferences. It integrates real-time data from sensors, room facilities, and calendar events to enhance decision-making in room selection.
-
-
