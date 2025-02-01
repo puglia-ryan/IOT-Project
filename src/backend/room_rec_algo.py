@@ -448,7 +448,7 @@ def get_room_recommendation(temp_preference, time_slot):
 
 
 # API Route recommended Rooms after filter
-@app.route("/recommend", methods=["POST"])
+@app.route('/recommend', methods=['POST'])
 def recommend():
     try:
         data = request.get_json()
@@ -458,30 +458,20 @@ def recommend():
         time_slot = data.get("time_slot", "")
 
         if not temp_preference or not time_slot:
-            return (
-                jsonify(
-                    {
-                        "error": "Invalid input. Please provide temperature and time_slot."
-                    }
-                ),
-                400,
-            )
+            return jsonify({"error": "Invalid input. Please provide temperature and time_slot."}), 400
 
-        recommended_rooms, suggestion_type = get_room_recommendation(
-            temp_preference, time_slot
-        )
+        recommended_rooms, suggestion_type = get_room_recommendation(temp_preference, time_slot)
 
         if recommended_rooms.empty:
             logging.info(f"No matching rooms for input: {data}")  # Log no results
             return jsonify({"error": "No rooms match the preferences."}), 404
 
-        logging.info(
-            f"Returning rooms: {recommended_rooms.to_dict(orient='records')}"
-        )  # Log results
+        logging.info(f"Returning rooms: {recommended_rooms.to_dict(orient='records')}")  # Log results
         return jsonify({"rooms": recommended_rooms.to_dict(orient="records")}), 200
     except Exception as e:
         logging.error(f"Unexpected error: {e}")
         return jsonify({"error": "Server error"}), 500
+
 
 
 if __name__ == "__main__":
