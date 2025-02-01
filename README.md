@@ -68,8 +68,6 @@ Click Submit to receive room recommendations.
 
 - A facilities table displays room resources (computers, projectors, seating, robots).
 
-- A calendar section shows events scheduled for the selected room.
-
 - Graphs update dynamically when the user selects a room.
 
 ### Running the UI
