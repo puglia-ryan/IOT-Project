@@ -29,7 +29,8 @@ def test_recommend():
         requests.post,
         f"{BASE_URL}/recommend",
         200,
-        json_data={"temperature": 22, "min_seating_capacity": 20}
+        json_data={"temperature": 22, "min_seating_capacity": 20, "time_slot":
+                   "08:00-10:00"}
     )
 
 def test_recommend_missing_params():
