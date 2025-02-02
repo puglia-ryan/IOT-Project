@@ -30,6 +30,12 @@ try:
     agenda_collection = agenda_db["agenda"]
     agenda_data = list(agenda_collection.find({}, {"_id": 0}))
     agenda_df = pd.DataFrame(agenda_data)
+    agenda_df[['start_time', 'end_time']] = agenda_df['time_slot'].str.split('-', expand=True)
+    agenda_df['start_time'] = agenda_df['start_time'].str.strip()
+    agenda_df['end_time'] = agenda_df['end_time'].str.strip()
+    agenda_df['start_time'] = pd.to_datetime(agenda_df['start_time'], format='%H:%M').dt.strftime('%H:%M')
+    agenda_df['end_time'] = pd.to_datetime(agenda_df['end_time'], format='%H:%M').dt.strftime('%H:%M')
+
 except Exception as e:
     logging.error(f"Error fetching agenda data: {e}")
     agenda_df = pd.DataFrame()
@@ -173,173 +179,253 @@ def get_rooms_with_metrics():
         logging.error(f"Error fetching rooms with metrics: {e}")
         return jsonify({"error": "Server error", "details": str(e)}), 500
 
+<<<<<<< HEAD
+=======
+
+# API Route: Get Time-Series Sensor Data
+@app.route("/sensor_history", methods=["GET"])
+def get_sensor_history():
+    try:
+        sensor_df["timestamp"] = pd.to_datetime(sensor_df["timestamp"], errors="coerce")
+        room_name = request.args.get("room")
+        limit = int(request.args.get("limit", 10))
+
+        if room_name:
+            filtered_data = sensor_df[sensor_df["room_name"] == room_name]
+        else:
+            filtered_data = sensor_df
+
+        filtered_data = filtered_data.head(limit)
+        return jsonify({"sensor_history": filtered_data.to_dict(orient="records")}), 200
+    except Exception as e:
+        logging.error(f"Error fetching sensor history: {e}")
+        return jsonify({"error": "Server error"}), 500
+
+
+# API Route: Detect Disconnected Sensors
+@app.route("/sensor_status", methods=["GET"])
+def get_sensor_status():
+    try:
+        sensor_df["timestamp"] = pd.to_datetime(sensor_df["timestamp"], errors="coerce")
+        sensor_df.sort_values("timestamp", inplace=True)
+
+        # Identify gaps in sensor data
+        sensor_df["time_diff"] = sensor_df.groupby("room_name")["timestamp"].diff()
+        disconnected_sensors = sensor_df[
+            sensor_df["time_diff"].dt.total_seconds() > 300
+        ]  # More than 5 min gap
+
+        return (
+            jsonify(
+                {"disconnected_sensors": disconnected_sensors.to_dict(orient="records")}
+            ),
+            200,
+        )
+    except Exception as e:
+        logging.error(f"Error detecting sensor disconnections: {e}")
+        return jsonify({"error": "Server error"}), 500
+
+@app.route("/room_facilities", methods=["GET"])
+def get_room_facilities():
+    try:
+        room_name = request.args.get("room")
+        if not room_name:
+            return jsonify({"error": "Room name is required"}), 400
+
+        # Get facilities for the requested room
+        facilities = facilities_df[facilities_df["room_name"] == room_name]
+
+        if facilities.empty:
+            return jsonify({"room_facilities": []}), 200  # Return empty list instead of error
+
+        # Ensure NaN values are replaced with valid JSON-friendly types
+        facilities = facilities.fillna({
+            "computers": 0,
+            "robots_for_training": 0,
+            "videoprojector": 0,
+            "seating_capacity": 0,
+        }).replace({np.nan: None})
+
+        # Convert all numeric values to native Python types
+        facilities = facilities.astype(object).where(pd.notna(facilities), None)
+
+        return jsonify({"room_facilities": facilities.to_dict(orient="records")}), 200
+    except Exception as e:
+        logging.error(f"Error fetching room facilities: {e}")
+        return jsonify({"error": "Server error"}), 500
+
+# API Route for all rooms (without recommendation filtering)
+@app.route("/rooms", methods=["GET"])
+def get_all_rooms():
+    try:
+        print("Room Data Columns:", room_data.columns)  # Debugging line
+
+        if room_data.empty:
+            return jsonify({"error": "No room data available"}), 404
+
+        # Check if 'facilities' exists
+        if "facilities" in room_data.columns:
+            all_rooms = room_data[
+                ["room_name", "facilities_score", "time_slot", "facilities"]
+            ]
+        else:
+            all_rooms = room_data[
+                ["room_name", "facilities_score", "time_slot"]
+            ]  # Avoid KeyError
+
+        return jsonify({"rooms": all_rooms.to_dict(orient="records")}), 200
+    except Exception as e:
+        logging.error(f"Unexpected error: {e}")
+        return jsonify({"error": "Server error"}), 500
+
+
+
+#####UI1 RECOMENDATION
+def update_final_end_time(df):
+    time_rooms_df = df[['room_name', 'start_time', 'end_time']].drop_duplicates()
+    time_rooms_df['final_end_time'] = time_rooms_df['end_time']
+    for room in df['room_name'].unique():
+        room_indices = time_rooms_df[time_rooms_df['room_name'] == room].index
+        for i in range(len(room_indices) - 1, 0, -1):
+            curr_idx = room_indices[i]
+            prev_idx = room_indices[i - 1]
+            if time_rooms_df.loc[prev_idx, 'end_time'] == time_rooms_df.loc[curr_idx, 'start_time']:
+                time_rooms_df.loc[prev_idx, 'final_end_time'] = time_rooms_df.loc[curr_idx, 'final_end_time']
+    time_rooms_df = time_rooms_df.sort_values(by=['room_name', 'start_time'])
+    time_rooms_df = time_rooms_df.drop_duplicates(subset=['room_name', 'final_end_time'], keep='first')
+    #print(time_rooms_df)
+    return time_rooms_df
+agenda_df = update_final_end_time(agenda_df)
+
+
+
+
+>>>>>>> 1f9adbe631fe2e2e31fac0f42ff5d0a501f670f9
 # Function to validate time slot format
 def validate_time_slot_format(time_slot):
     try:
-        start, end = time_slot.split("-")
+        start, end = time_slot.split('-')
         pd.Timestamp(start.strip())
         pd.Timestamp(end.strip())
         return True
     except Exception:
         return False
 
-
 # Helper function for time slot overlap
 def is_time_within_slot(timestamp, user_time_slot):
     try:
         # Extract time portion only for comparison
         timestamp_time = timestamp.time()
-        user_start, user_end = map(
-            lambda t: pd.Timestamp(t.strip()).time(), user_time_slot.split("-")
-        )
+        user_start, user_end = map(lambda t: pd.Timestamp(t.strip()).time(), user_time_slot.split('-'))
         return user_start <= timestamp_time <= user_end
     except Exception as e:
         print(f"Error in time slot comparison: {e}")
         return False
 
-
-def is_room_available(room_name, time_slot):
-    """
-    Check if a room is available based on the agenda.
-    If the room appears in the agenda for the given time slot, it's considered booked.
-    """
-    booked_slots = agenda_df[agenda_df["room_name"] == room_name]["time_slot"].tolist()
-
-    for booked_time in booked_slots:
-        if is_time_within_slot(pd.Timestamp(time_slot.split("-")[0]), booked_time):
-            return False  # Room is booked
-
-    return True  # Room is available
-
-
 # Function to get recommendations based on time slot and preferences
 def get_room_recommendation(temp_preference, time_slot):
     # Check if the provided time slot is in the correct format
     if not validate_time_slot_format(time_slot):
-        print(
-            "Error: The time slot format is invalid. Please use the format 'HH:MM-HH:MM'."
-        )
+        print("Error: The time slot format is invalid. Please use the format 'HH:MM-HH:MM'.")
         return pd.DataFrame(), "time_slot"
 
     # Filter sensor data for the given time slot
     filtered_sensor_data = sensor_df[
-        sensor_df["timestamp"].apply(lambda ts: is_time_within_slot(ts, time_slot))
+        sensor_df['timestamp'].apply(lambda ts: is_time_within_slot(ts, time_slot))
     ]
 
     if filtered_sensor_data.empty:
         print(f"No sensor data is available for the time slot '{time_slot}'.")
         return pd.DataFrame(), "time_slot"
 
-    # Filter out rooms that are booked in the agenda for the given time slot
-    available_rooms = room_data[
-        room_data["room_name"].apply(lambda room: is_room_available(room, time_slot))
-    ]
+    # Merge sensor data with room data
+    filtered_room_data = pd.merge(room_data, filtered_sensor_data, on="room_name", how="inner")
 
-    # Merge available rooms with sensor data
-    filtered_room_data = pd.merge(
-        available_rooms, filtered_sensor_data, on="room_name", how="inner"
-    )
 
+    # Add initial final_end_time from end_time
+    filtered_room_data['final_end_time'] = filtered_room_data['end_time']
+
+    
     # Check if the temperature column exists
-    if "temperature" not in filtered_room_data.columns:
+    if 'temperature' not in filtered_room_data.columns:
         print("Error: Temperature data is missing. Unable to process recommendations.")
         return pd.DataFrame(), None
 
     # Apply temperature preference and regulations
     filtered_rooms = filtered_room_data[
-        (filtered_room_data["temperature"] >= temp_preference - 2)
-        & (filtered_room_data["temperature"] <= temp_preference + 2)
-        & (filtered_room_data["co2_level"] <= standards["co2_level"])
-        & (filtered_room_data["temperature"] >= standards["temperature_min"])
-        & (filtered_room_data["temperature"] <= standards["temperature_max"])
-        & (filtered_room_data["humidity"] >= standards["humidity_min"])
-        & (filtered_room_data["humidity"] <= standards["humidity_max"])
-        & (filtered_room_data["voc_level"] <= standards["voc_level"])
-        & (filtered_room_data["PM10"] <= standards["PM10"])
-        & (filtered_room_data["PM2.5"] <= standards["PM2.5"])
-        & (filtered_room_data["sound_level"] <= standards["sound_level"])
+        (filtered_room_data['temperature'] >= temp_preference - 1) &
+        (filtered_room_data['temperature'] <= temp_preference + 1) &
+        (filtered_room_data['co2_level'] <= standards['co2_level']) &
+        (filtered_room_data['temperature'] >= standards['temperature_min']) &
+        (filtered_room_data['temperature'] <= standards['temperature_max']) &
+        (filtered_room_data['humidity'] >= standards['humidity_min']) &
+        (filtered_room_data['humidity'] <= standards['humidity_max']) &
+        (filtered_room_data['voc_level'] <= standards['voc_level']) &
+        (filtered_room_data['PM10'] <= standards['PM10']) &
+        (filtered_room_data['PM2.5'] <= standards['PM2.5']) &
+        (filtered_room_data['sound_level'] <= standards['sound_level'])
     ]
 
     if filtered_rooms.empty:
-        print(
-            f"No rooms match your preferences and meet the regulations for the time slot '{time_slot}'."
-        )
-
+        print(f"No rooms match your preferences and meet the regulations for the time slot '{time_slot}'.")
+        
         # Suggest alternative temperatures if temperature is the issue
-        if (
-            temp_preference < standards["temperature_min"]
-            or temp_preference > standards["temperature_max"]
-        ):
-            print(
-                f"The preferred temperature {temp_preference}°C is outside the acceptable range."
-            )
+        if (temp_preference < standards['temperature_min'] or 
+            temp_preference > standards['temperature_max']):
+            print(f"The preferred temperature {temp_preference}°C is outside the acceptable range.")
             available_temps = (
-                room_data["temperature"].dropna().unique()
-                if "temperature" in room_data.columns
-                else []
+                room_data['temperature']
+                .dropna()
+                .unique() if 'temperature' in room_data.columns else []
             )
             if len(available_temps) > 0:
-                print(
-                    f"Available temperatures within acceptable range: {sorted(available_temps)}"
-                )
+                print(f"Available temperatures within acceptable range: {sorted(available_temps)}")
         else:
-            print(
-                f"Available time slots for the selected temperature preference: {time_slot}."
-            )
-
+            print(f"Available time slots for the selected temperature preference: {time_slot}.")
+    
         return pd.DataFrame(), "preferences"
+    
+
+    #filtered_rooms = filtered_rooms[filtered_rooms['start_time'] <= time_slot.split('-')[0]]
+    #filtered_rooms = filtered_rooms[filtered_rooms['final_end_time'] >= time_slot.split('-')[1]]
+
+    if filtered_rooms.empty:
+        print(f"No rooms are available for the selected time slot '{time_slot}' with your preferences.")
+        return pd.DataFrame(), "preferences"
+
 
     # Group by room_name and summarize sensor values
     grouped_rooms = (
         filtered_rooms.groupby("room_name")
-        .agg(
-            {
-                "temperature": "median",  # Use median temperature for summarizing
-                "co2_level": "median",
-                "humidity": "median",
-                "sound_level": "median",
-                "facilities_score": "first",  # Keep facilities score as-is
-                "videoprojector": "first",
-                "seating_capacity": "first",
-                "computers": "first",
-                "robots_for_training": "first",
-            }
-        )
+        .agg({
+            "temperature": "median",  # Use median temperature for summarizing
+            "co2_level": "median",
+            "humidity": "median",
+            "sound_level": "median",
+            "facilities_score": "first",  # Keep facilities score as-is
+            "videoprojector": "first",
+            "seating_capacity": "first",
+            "computers": "first",
+            "robots_for_training": "first",
+        })
         .reset_index()
     )
 
     # Calculate rank based on the summarized data
     grouped_rooms["rank"] = (
-        grouped_rooms["facilities_score"] * 0.5
-        + grouped_rooms[["temperature", "co2_level", "humidity", "sound_level"]].mean(
-            axis=1
-        )
-        * 0.5
+        grouped_rooms["facilities_score"] * 0.5 +
+        grouped_rooms[["temperature", "co2_level", "humidity", "sound_level"]].mean(axis=1) * 0.5
     ).rank(ascending=False)
 
     # Prepare the facilities column as a string/dictionary, handling NaN values
     grouped_rooms["facilities"] = grouped_rooms.apply(
         lambda row: {
-            "videoprojector": (
-                row.get("videoprojector", 0)
-                if pd.notna(row.get("videoprojector"))
-                else 0
-            ),
-            "seating_capacity": (
-                row.get("seating_capacity", 0)
-                if pd.notna(row.get("seating_capacity"))
-                else 0
-            ),
-            "computers": (
-                row.get("computers", 0) if pd.notna(row.get("computers")) else 0
-            ),
-            "robots_for_training": (
-                row.get("robots_for_training", 0)
-                if pd.notna(row.get("robots_for_training"))
-                else 0
-            ),
+            "videoprojector": row.get("videoprojector", 0) if pd.notna(row.get("videoprojector")) else 0,
+            "seating_capacity": row.get("seating_capacity", 0) if pd.notna(row.get("seating_capacity")) else 0,
+            "computers": row.get("computers", 0) if pd.notna(row.get("computers")) else 0,
+            "robots_for_training": row.get("robots_for_training", 0) if pd.notna(row.get("robots_for_training")) else 0
         },
-        axis=1,
+        axis=1
     )
 
     # Select the required columns (rank, room_name, and facilities)
@@ -348,9 +434,8 @@ def get_room_recommendation(temp_preference, time_slot):
     # Return top 10 recommendations
     return final_recommendation.sort_values(by="rank").head(10), None
 
-
 # API Route recommended Rooms after filter
-@app.route("/recommend", methods=["POST"])
+@app.route('/recommend', methods=['POST'])
 def recommend():
     try:
         data = request.get_json()
@@ -360,26 +445,15 @@ def recommend():
         time_slot = data.get("time_slot", "")
 
         if not temp_preference or not time_slot:
-            return (
-                jsonify(
-                    {
-                        "error": "Invalid input. Please provide temperature and time_slot."
-                    }
-                ),
-                400,
-            )
+            return jsonify({"error": "Invalid input. Please provide temperature and time_slot."}), 400
 
-        recommended_rooms, suggestion_type = get_room_recommendation(
-            temp_preference, time_slot
-        )
+        recommended_rooms, suggestion_type = get_room_recommendation(temp_preference, time_slot)
 
         if recommended_rooms.empty:
             logging.info(f"No matching rooms for input: {data}")  # Log no results
             return jsonify({"error": "No rooms match the preferences."}), 404
 
-        logging.info(
-            f"Returning rooms: {recommended_rooms.to_dict(orient='records')}"
-        )  # Log results
+        logging.info(f"Returning rooms: {recommended_rooms.to_dict(orient='records')}")  # Log results
         return jsonify({"rooms": recommended_rooms.to_dict(orient="records")}), 200
     except Exception as e:
         logging.error(f"Unexpected error: {e}")
@@ -388,3 +462,4 @@ def recommend():
 
 if __name__ == "__main__":
     app.run(port=5009, debug=True)
+
