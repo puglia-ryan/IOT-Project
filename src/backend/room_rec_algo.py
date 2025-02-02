@@ -30,6 +30,12 @@ try:
     agenda_collection = agenda_db["agenda"]
     agenda_data = list(agenda_collection.find({}, {"_id": 0}))
     agenda_df = pd.DataFrame(agenda_data)
+    agenda_df[['start_time', 'end_time']] = agenda_df['time_slot'].str.split('-', expand=True)
+    agenda_df['start_time'] = agenda_df['start_time'].str.strip()
+    agenda_df['end_time'] = agenda_df['end_time'].str.strip()
+    agenda_df['start_time'] = pd.to_datetime(agenda_df['start_time'], format='%H:%M').dt.strftime('%H:%M')
+    agenda_df['end_time'] = pd.to_datetime(agenda_df['end_time'], format='%H:%M').dt.strftime('%H:%M')
+
 except Exception as e:
     logging.error(f"Error fetching agenda data: {e}")
     agenda_df = pd.DataFrame()
@@ -271,6 +277,27 @@ def get_all_rooms():
         return jsonify({"error": "Server error"}), 500
 
 
+
+#####UI1 RECOMENDATION
+def update_final_end_time(df):
+    time_rooms_df = df[['room_name', 'start_time', 'end_time']].drop_duplicates()
+    time_rooms_df['final_end_time'] = time_rooms_df['end_time']
+    for room in df['room_name'].unique():
+        room_indices = time_rooms_df[time_rooms_df['room_name'] == room].index
+        for i in range(len(room_indices) - 1, 0, -1):
+            curr_idx = room_indices[i]
+            prev_idx = room_indices[i - 1]
+            if time_rooms_df.loc[prev_idx, 'end_time'] == time_rooms_df.loc[curr_idx, 'start_time']:
+                time_rooms_df.loc[prev_idx, 'final_end_time'] = time_rooms_df.loc[curr_idx, 'final_end_time']
+    time_rooms_df = time_rooms_df.sort_values(by=['room_name', 'start_time'])
+    time_rooms_df = time_rooms_df.drop_duplicates(subset=['room_name', 'final_end_time'], keep='first')
+    #print(time_rooms_df)
+    return time_rooms_df
+agenda_df = update_final_end_time(agenda_df)
+
+
+
+
 # Function to validate time slot format
 def validate_time_slot_format(time_slot):
     try:
@@ -311,6 +338,11 @@ def get_room_recommendation(temp_preference, time_slot):
     # Merge sensor data with room data
     filtered_room_data = pd.merge(room_data, filtered_sensor_data, on="room_name", how="inner")
 
+
+    # Add initial final_end_time from end_time
+    filtered_room_data['final_end_time'] = filtered_room_data['end_time']
+
+    
     # Check if the temperature column exists
     if 'temperature' not in filtered_room_data.columns:
         print("Error: Temperature data is missing. Unable to process recommendations.")
@@ -347,8 +379,17 @@ def get_room_recommendation(temp_preference, time_slot):
                 print(f"Available temperatures within acceptable range: {sorted(available_temps)}")
         else:
             print(f"Available time slots for the selected temperature preference: {time_slot}.")
-        
+    
         return pd.DataFrame(), "preferences"
+    
+
+    #filtered_rooms = filtered_rooms[filtered_rooms['start_time'] <= time_slot.split('-')[0]]
+    #filtered_rooms = filtered_rooms[filtered_rooms['final_end_time'] >= time_slot.split('-')[1]]
+
+    if filtered_rooms.empty:
+        print(f"No rooms are available for the selected time slot '{time_slot}' with your preferences.")
+        return pd.DataFrame(), "preferences"
+
 
     # Group by room_name and summarize sensor values
     grouped_rooms = (
