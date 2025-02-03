@@ -84,7 +84,8 @@ input[type="range"] {
   accent-color: #007bff;
 }
 
-#temperature-value {
+#temperature-value,
+#noise-value {
   font-weight: bold;
   color: #007bff;
 }
@@ -105,7 +106,7 @@ input[type="range"] {
   background-color: #0056b3;
 }
 
-/*Table*/
+/* Table */
 table {
   width: 100%;
   border-collapse: collapse;
@@ -150,4 +151,63 @@ tr:hover td {
   th, td {
     padding: 8px;
   }
+}
+
+/* Noise Slider Specific */
+#noise-slider {
+  width: 100%;
+}
+
+#noise-value {
+  margin-top: 5px;
+}
+
+/* Importance Buttons Styling */
+.importance-buttons {
+  display: flex;
+  gap: 10px;
+  margin-top: 5px;
+}
+
+.importance-btn {
+  padding: 5px 10px;
+  background-color: #f4f7fa;
+  border: 1px solid #ddd;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 1rem;
+  transition: background-color 0.3s ease;
+}
+
+.importance-btn:hover {
+  background-color: #007bff;
+  color: white;
+}
+
+.importance-btn.active {
+  background-color: #007bff;
+  color: white;
+}
+
+
+/* Styling for the importance dropdown - Select */
+select {
+  padding: 10px;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  font-size: 1rem;
+  background-color: #fff;
+  color: #333;
+}
+
+/* Styling for specific option in the dropdown (Moderate) */
+select option[value="0.5"] {
+  background-color: #007bff; /* Blue background */
+  color: white; /* White text */
+}
+
+/* Optional: Hover effect on options */
+select option:hover {
+  background-color: #0056b3; /* Darker blue when hovered */
+  color: white;
 }
