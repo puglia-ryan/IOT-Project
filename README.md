@@ -46,7 +46,7 @@ The API will be available at http://localhost:5009.
 
 ### Features
 
-- Users can input their preferred temperature and time slot.
+- Users can input their preferred temperature and time slot and adjust the importance factors.
 
 - The system provides room recommendations based on available sensor data and facilities.
 
@@ -56,7 +56,9 @@ The API will be available at http://localhost:5009.
 
 Open index.html in a web browser.
 
-Adjust the temperature slider and time slot.
+Adjust the temperature slider and time slot and adjust the importance factors.
+
+Add the time slot requested.
 
 Click Submit to receive room recommendations.
 
